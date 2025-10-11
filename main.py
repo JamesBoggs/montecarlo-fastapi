@@ -36,3 +36,45 @@ async def montecarlo():
             "confidenceInterval": "±{:.1f}%".format((1.96 * std_arr / mean_arr) * 100)
         }
     }
+    @app.post("/elasticity")
+async def elasticity():
+    import torch
+
+    # Simulated price–demand curve
+    prices = torch.linspace(10, 100, steps=20)
+    demand = 500 * (prices ** -0.8) + torch.normal(0, 10, size=(20,))
+
+    # Log transform for elasticity regression
+    log_price = torch.log(prices).unsqueeze(1)
+    log_demand = torch.log(demand).unsqueeze(1)
+
+    # Linear regression: log(Demand) = β * log(Price) + intercept
+    A = torch.cat([log_price, torch.ones_like(log_price)], dim=1)
+    beta, _ = torch.lstsq(log_demand, A)
+    beta = beta[:2]
+
+    # Elasticity is slope
+    elasticity = beta[0].item()
+    intercept = beta[1].item()
+
+    # R²
+    predicted = A @ beta
+    residuals = log_demand - predicted
+    ss_res = torch.sum(residuals ** 2)
+    ss_tot = torch.sum((log_demand - log_demand.mean()) ** 2)
+    r2 = 1 - ss_res / ss_tot
+
+    # Fake optimal price based on intercept + elasticity
+    optimal_price = torch.exp((torch.tensor(7.0) - intercept) / elasticity).item()
+
+    return {
+        "model": "elasticity-v1.2.3",
+        "status": "online",
+        "latency": "71ms",
+        "lastUpdated": "2025-10-11",
+        "data": {
+            "elasticity": round(elasticity, 3),
+            "rSquared": round(r2.item(), 4),
+            "optimalPrice": round(optimal_price, 2)
+        }
+    }
