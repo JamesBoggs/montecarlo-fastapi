@@ -1,84 +1,58 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import torch
-import random
+import numpy as np
+import datetime
 
 app = FastAPI()
 
-# Allow frontend to call this
+# Allow frontend to access the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Adjust this for security in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Input schema
-class ElasticityRequest(BaseModel):
-    price: float
-    base_demand: float
-
 @app.get("/")
 def read_root():
-    return {"message": "FastAPI pricing models backend"}
+    return {"status": "online", "model": "montecarlo-v1.0.0"}
 
-# --------------------
-# MONTECARLO ENDPOINT
-# --------------------
-@app.post("/montecarlo")
-async def montecarlo():
-    data = [{"month": i, "revenue": random.randint(10000, 50000)} for i in range(1, 13)]
+@app.get("/montecarlo")
+def montecarlo_simulation(
+    trials: int = 500,
+    initial_revenue: float = 1_000_000,
+    mean_growth: float = 0.02,
+    std_dev: float = 0.05,
+    months: int = 12,
+):
+    np.random.seed(42)
+    simulations = []
+
+    for _ in range(trials):
+        revenue = initial_revenue
+        path = [revenue]
+        for _ in range(months):
+            shock = np.random.normal(loc=mean_growth, scale=std_dev)
+            revenue *= (1 + shock)
+            path.append(revenue)
+        simulations.append(path)
+
+    percentiles = np.percentile(simulations, [5, 50, 95], axis=0)
+
     return {
         "model": "montecarlo-v1.0.0",
-        "status": "online",
-        "lastUpdated": "2025-10-11",
-        "results": data
-    }
-
-# --------------------
-# ELASTICITY ENDPOINT
-# --------------------
-@app.post("/elasticity")
-async def elasticity(req: ElasticityRequest):
-    try:
-        # Dummy PyTorch calculation (linear demand drop)
-        price_tensor = torch.tensor(req.price)
-        base_demand_tensor = torch.tensor(req.base_demand)
-
-        elasticity_coeff = torch.tensor(-0.3)  # Sensitivity to price
-        demand = base_demand_tensor + elasticity_coeff * (price_tensor - 100)
-
-        return {
-            "model": "elasticity-v1.0.0",
-            "status": "online",
-            "lastUpdated": "2025-10-11",
-            "input": {"price": req.price, "base_demand": req.base_demand},
-            "output": {"demand": float(torch.clamp(demand, min=0).item())}
+        "last_updated": datetime.datetime.utcnow().isoformat(),
+        "revenue_projection": {
+            "p5": list(np.round(percentiles[0], 2)),
+            "p50": list(np.round(percentiles[1], 2)),
+            "p95": list(np.round(percentiles[2], 2)),
+        },
+        "params": {
+            "trials": trials,
+            "months": months,
+            "initial_revenue": initial_revenue,
+            "mean_growth": mean_growth,
+            "std_dev": std_dev,
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# --------------------
-# STUBS FOR FUTURE MODELS
-# --------------------
-@app.post("/forecast")
-async def forecast():
-    raise HTTPException(status_code=501, detail="Coming soon")
-
-@app.post("/price-engine")
-async def price_engine():
-    raise HTTPException(status_code=501, detail="Coming soon")
-
-@app.post("/rl-pricing")
-async def rl_pricing():
-    raise HTTPException(status_code=501, detail="Coming soon")
-
-@app.post("/sentiment")
-async def sentiment():
-    raise HTTPException(status_code=501, detail="Coming soon")
-
-@app.post("/volatility")
-async def volatility():
-    raise HTTPException(status_code=501, detail="Coming soon")
+    }
