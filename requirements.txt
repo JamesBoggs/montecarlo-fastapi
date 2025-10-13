@@ -1,5 +1,2 @@
 fastapi
 uvicorn
-numpy
-torch
-python-multipart
