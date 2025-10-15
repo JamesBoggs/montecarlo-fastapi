@@ -1,8 +1,10 @@
+from ops_instrumentation import attach_ops
 # main.py for montecarlo-fastapi
 from fastapi import FastAPI
 from datetime import datetime
 
 app = FastAPI()
+attach_ops(app)
 
 @app.get("/montecarlo")
 async def run_monte_carlo():
