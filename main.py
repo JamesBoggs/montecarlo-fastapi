@@ -1,9 +1,18 @@
+from fastapi.middleware.cors import CORSMiddleware
 from ops_instrumentation import attach_ops
 # main.py for montecarlo-fastapi
 from fastapi import FastAPI
+from meta import router as meta_router
 from datetime import datetime
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(meta_router)
 attach_ops(app)
 
 @app.get("/montecarlo")
@@ -19,3 +28,7 @@ async def run_monte_carlo():
             "confidence_interval": [99.34, 125.56]
         }
     }
+
+@app.get("/health")
+def health():
+    return {"ok": True}
