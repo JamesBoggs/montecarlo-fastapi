@@ -1,1 +1,5 @@
-
+fastapi>=0.110
+prometheus-client>=0.20
+pydantic>=2
+pytest>=7.4
+uvicorn[standard]>=0.23
