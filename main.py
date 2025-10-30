@@ -2,7 +2,13 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import torch, math, json, os
 from typing import List
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],            # allow all frontends
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # === Load Model ===
 MODEL_PATH = "models/montecarlo.pt"
 META_PATH = "models/montecarlo_meta.json"
