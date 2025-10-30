@@ -1,4 +1,4 @@
 fastapi
+uvicorn
 torch
-uvicorn[standard]
-pydantic
+numpy
