@@ -1,15 +1,22 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import torch, math, json, os
 from typing import List
+
+# === 1. Create the FastAPI app ===
+app = FastAPI(title="Monte Carlo Simulator", version="1.0.0")
+
+# === 2. Enable CORS (must come AFTER app is defined) ===
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],            # allow all frontends
+    allow_origins=["*"],           # or restrict to ["https://www.jamesboggs.online"]
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# === Load Model ===
+
+# === 3. Load Model ===
 MODEL_PATH = "models/montecarlo.pt"
 META_PATH = "models/montecarlo_meta.json"
 
@@ -20,15 +27,13 @@ try:
 except Exception as e:
     raise RuntimeError(f"Failed to load model weights: {e}")
 
-# === Optional Metadata ===
+# === 4. Optional Metadata ===
 meta = {}
 if os.path.exists(META_PATH):
     with open(META_PATH, "r") as f:
         meta = json.load(f)
 
-# === FastAPI App ===
-app = FastAPI(title="Monte Carlo Simulator", version="1.0.0")
-
+# === 5. Pydantic Schemas ===
 class SimRequest(BaseModel):
     S0: float = 100.0
     T: float = 1.0
@@ -38,6 +43,7 @@ class SimRequest(BaseModel):
 class SimResponse(BaseModel):
     paths: List[List[float]]
 
+# === 6. Health Check ===
 @app.get("/health")
 def health():
     return {
@@ -47,6 +53,7 @@ def health():
         "meta": meta or None
     }
 
+# === 7. Simulation Endpoint ===
 @app.post("/simulate", response_model=SimResponse)
 def simulate(req: SimRequest):
     try:
