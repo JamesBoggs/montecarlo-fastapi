@@ -5,10 +5,11 @@ from .routers import health, meta, metrics
 
 app = FastAPI(title="Monte Carlo API", version="2.1.0")
 
+# ✅ Redone CORS: no credentials + wildcard origin
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["*"],        # or lock this down later if you want
+    allow_credentials=False,    # IMPORTANT: was True before, flip to False
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -21,4 +22,7 @@ app.include_router(metrics.router)
 # Debug: list every mounted route (handy on Render)
 @app.get("/__routes")
 def __routes():
-    return [{"path": r.path, "methods": list(getattr(r, "methods", []))} for r in app.router.routes]
+    return [
+        {"path": r.path, "methods": list(getattr(r, "methods", []))}
+        for r in app.router.routes
+    ]
