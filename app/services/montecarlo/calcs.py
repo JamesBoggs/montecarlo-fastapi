@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import torch
 
+from ...core.registry import Registry  # NEW: use the shared Registry helper
+
+
 # -------------------------------------------------------------------
 # Device / engine setup
 # -------------------------------------------------------------------
@@ -318,7 +321,10 @@ class MonteCarloEngine:
         }
 
 
-# Singleton engine instance
+# -------------------------------------------------------------------
+# Singleton engine helpers
+# -------------------------------------------------------------------
+
 _engine = MonteCarloEngine()
 
 
@@ -327,7 +333,7 @@ def get_engine() -> MonteCarloEngine:
 
 
 # -------------------------------------------------------------------
-# Metric-level functions (used by registry)
+# Metric-level functions (payload-based, reused by registry wrappers)
 # -------------------------------------------------------------------
 
 def _cfg_from_payload(payload: Dict[str, Any]) -> SimulationConfig:
@@ -443,56 +449,57 @@ def meta() -> Dict[str, Any]:
 
 
 # -------------------------------------------------------------------
-# DESCRIPTOR + registry (what meta.py / metrics.py expect)
+# Registry + descriptor (new style, compatible with mount_metrics)
 # -------------------------------------------------------------------
 
+# Registry instance used by routers.metrics
+registry = Registry(base_prefix="/api/montecarlo")
+
+# Zero-arg wrappers for the registry-based metrics (dashboard defaults)
+@registry.register("var", "Value-at-Risk (VaR)")
+def metric_var_default():
+    return metric_var({})
+
+
+@registry.register("cvar", "Conditional VaR (CVaR)")
+def metric_cvar_default():
+    return metric_cvar({})
+
+
+@registry.register("sharpe", "Sharpe Ratio")
+def metric_sharpe_default():
+    return metric_sharpe({})
+
+
+@registry.register("stress", "Stress Testing")
+def metric_stress_default():
+    return metric_stress({})
+
+
+@registry.register("options", "Option Pricing")
+def metric_options_default():
+    return metric_options({})
+
+
+@registry.register("portfolio", "Portfolio Simulation")
+def metric_portfolio_default():
+    return metric_portfolio({})
+
+
+@registry.register("uncertainty", "Forecast Error Bands")
+def metric_uncertainty_default():
+    return metric_uncertainty({})
+
+# If you ever want "core" as a metric endpoint:
+# @registry.register("core", "Core Monte Carlo Simulation")
+# def metric_core_default():
+#     return core_simulation({})
+
+
+# Descriptor used by /meta router (same outer shape as before)
 DESCRIPTOR: Dict[str, Any] = {
     "name": "Monte Carlo Simulator",
     "description": "Simulates price paths and volatility shocks using stochastic models.",
     "version": "2.1.0",
-    "metrics": [
-        {"id": "var", "label": "Value-at-Risk (VaR)", "endpoint": "/api/montecarlo/var"},
-        {
-            "id": "cvar",
-            "label": "Conditional VaR (CVaR)",
-            "endpoint": "/api/montecarlo/cvar",
-        },
-        {
-            "id": "sharpe",
-            "label": "Sharpe Ratio",
-            "endpoint": "/api/montecarlo/sharpe",
-        },
-        {
-            "id": "stress",
-            "label": "Stress Testing",
-            "endpoint": "/api/montecarlo/stress",
-        },
-        {
-            "id": "options",
-            "label": "Option Pricing",
-            "endpoint": "/api/montecarlo/options",
-        },
-        {
-            "id": "portfolio",
-            "label": "Portfolio Simulation",
-            "endpoint": "/api/montecarlo/portfolio",
-        },
-        {
-            "id": "uncertainty",
-            "label": "Forecast Error Bands",
-            "endpoint": "/api/montecarlo/uncertainty",
-        },
-    ],
-}
-
-registry: Dict[str, Any] = {
-    "var": metric_var,
-    "cvar": metric_cvar,
-    "sharpe": metric_sharpe,
-    "stress": metric_stress,
-    "options": metric_options,
-    "portfolio": metric_portfolio,
-    "uncertainty": metric_uncertainty,
-    # you can also expose "core" for a generic simulation endpoint:
-    "core": core_simulation,
+    "metrics": registry.describe(),  # [{id,label,endpoint}, ...]
 }
