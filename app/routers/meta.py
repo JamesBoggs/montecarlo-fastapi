@@ -1,14 +1,25 @@
+# app/routers/meta.py
 from fastapi import APIRouter
-from ..services.montecarlo.calcs import DESCRIPTOR, registry
+
 from ..core.format import meta_payload
+from ..services.montecarlo.calcs import DESCRIPTOR, meta as engine_meta
 
 router = APIRouter()
 
-@router.get("/meta")
-def meta():
+
+@router.get("/api/montecarlo/meta")
+def get_meta():
+    """
+    Meta endpoint for the Monte Carlo service.
+    Combines static descriptor with engine meta info.
+    """
+    eng = engine_meta()  # {"engine": "...", "version": "...", "device": "..."}
+
     return meta_payload(
-        name=DESCRIPTOR.get("name", "montecarlo"),
-        description=DESCRIPTOR.get("description", ""),
-        metrics=registry.describe(),
-        version=DESCRIPTOR.get("version", "1.0.0"),
+        name=DESCRIPTOR["name"],
+        description=DESCRIPTOR["description"],
+        version=DESCRIPTOR["version"],
+        engine=eng.get("engine", "montecarlo"),
+        device=eng.get("device", "cpu"),
+        metrics=DESCRIPTOR.get("metrics", []),
     )
